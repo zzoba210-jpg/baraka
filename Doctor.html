@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>لوحة تحكم الطبيب</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; padding: 20px; }
+        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 950px; margin: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; border-bottom: 1px solid #ddd; text-align: center; }
+        th { background: #0d47a1; color: white; }
+        button { border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; color: white; margin: 2px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>حجوزات المرضى (مرتبة حسب التاريخ)</h2>
+    <input type="date" id="filterDate" onchange="loadData()">
+    <table id="bookingsTable">
+        <thead>
+            <tr>
+                <th>م</th>
+                <th>الاسم</th>
+                <th>السن</th>
+                <th>الهاتف</th>
+                <th>التاريخ</th>
+                <th>الحالة</th>
+                <th>الإجراء</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, deleteDoc, doc, updateDoc, query, orderBy, where } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyAEH7arnk26hwNmS1kl8LcvNbxerlDW0P8",
+        authDomain: "clinc-booking-d97b7.firebaseapp.com",
+        projectId: "clinc-booking-d97b7",
+        storageBucket: "clinc-booking-d97b7.firebasestorage.app",
+        messagingSenderId: "789799997547",
+        appId: "1:789799997547:web:c6e4dbc45900f32c01612e"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    window.loadData = async () => {
+        const selectedDate = document.getElementById('filterDate').value;
+        const tbody = document.querySelector('#bookingsTable tbody');
+        tbody.innerHTML = '';
+        let i = 1;
+
+        let q = query(collection(db, "appointments"), orderBy("bookingDate", "asc"));
+        
+        if (selectedDate) {
+            q = query(collection(db, "appointments"), where("bookingDate", "==", selectedDate), orderBy("bookingDate", "asc"));
+        }
+
+        const querySnapshot = await getDocs(q);
+        querySnapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            const isPaid = data.isPaid === true;
+            
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${i++}</td>
+                <td>${data.patientName}</td>
+                <td>${data.patientAge}</td>
+                <td>${data.patientPhone}</td>
+                <td>${data.bookingDate}</td>
+                <td style="color:${isPaid ? 'green' : 'red'}; font-weight:bold">${isPaid ? '✅ مدفوع' : '❌ لم يدفع'}</td>
+                <td>
+                    ${!isPaid ? `<button onclick="markAsPaid('${docSnap.id}')" style="background:#28a745">دفع</button>` : ''}
+                    <button onclick="finishVisit('${docSnap.id}')" style="background:#dc3545">كشف</button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    };
+
+    window.markAsPaid = async (id) => {
+        await updateDoc(doc(db, "appointments", id), { isPaid: true });
+        loadData();
+    };
+
+    window.finishVisit = async (id) => {
+        if(confirm("هل تم الانتهاء من الكشف وحذف الحجز؟")) {
+            await deleteDoc(doc(db, "appointments", id));
+            loadData();
+        }
+    };
+
+    loadData();
+</script>
+</body>
+</html>
